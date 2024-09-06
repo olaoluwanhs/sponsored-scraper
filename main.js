@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const puppeteer_extra_1 = __importDefault(require("puppeteer-extra"));
 const puppeteer_extra_plugin_stealth_1 = __importDefault(require("puppeteer-extra-plugin-stealth"));
 const yelp_1 = __importDefault(require("./websites/yelp"));
+const json_db_1 = require("./json-db");
 puppeteer_extra_1.default.use((0, puppeteer_extra_plugin_stealth_1.default)());
 function Main() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -34,23 +35,27 @@ function Main() {
         // Process
         try {
             yield targetSite.navigate();
-            yield targetSite.search("royal");
+            yield targetSite.search("Wears");
             const sponsored = yield targetSite.fetchSponsored();
             console.log(sponsored);
             for (let s of sponsored) {
                 if (!s)
                     continue;
                 yield targetSite.navigate(s, true);
-                yield new Promise(r => setTimeout(r, 5000));
+                const businessInfo = yield targetSite.getBusinessInformation();
+                // console.log(businessInfo)
+                yield (0, json_db_1.writeObject)(businessInfo);
+                yield new Promise(r => setTimeout(r, 7000));
             }
         }
         catch (error) {
             console.log(error.message);
-            yield page.close();
+            console.log(error.stack);
+            // await page.close()
             yield browser.close();
         }
-        yield page.close();
+        // await page.close()
         yield browser.close();
     });
 }
-Main();
+Main().catch(e => console.log(e.message));

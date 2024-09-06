@@ -1,4 +1,5 @@
 import { Browser, Page } from "puppeteer";
+import { BusinessInfo } from "../json-db";
 
 export default class Yelp {
     page: Page;
@@ -11,7 +12,9 @@ export default class Yelp {
     }
 
     async navigate(url: string = this.url, is_route: boolean = false) {
-        await this.page.goto(is_route ? `${this.url}${url}` : url, { timeout: 180000 });
+        const link = is_route ? `${this.url}${url}` : url
+        console.log(link)
+        await this.page.goto(link, { timeout: 180000 });
     }
 
     async search(term: string) {
@@ -20,8 +23,10 @@ export default class Yelp {
         await this.page.keyboard.type(term, { delay: 100 })
         await new Promise(r => setTimeout(r, 3000)) //wait for a few seconds
 
-        await this.page.keyboard.press('Enter')
-        await this.page.waitForNavigation()
+        await Promise.all([
+            this.page.waitForNavigation({ timeout: 0 }),
+            this.page.keyboard.press('Enter')
+        ])
     }
 
     async fetchSponsored() {
@@ -38,6 +43,21 @@ export default class Yelp {
         });
 
         return sponsoredList
+    }
+
+    async getBusinessInformation() {
+        const contactInfo: BusinessInfo = {}
+
+        const phoneNumberHead = await this.page.waitForSelector(`::-p-xpath(//p[contains(text(), 'Phone number')]/following-sibling::*[1])`)
+        contactInfo.phoneNumber = await (await phoneNumberHead?.getProperty('textContent'))?.jsonValue()
+
+        const companyWebsite = await this.page.waitForSelector(`::-p-xpath(//p[contains(text(), 'Business website')]/following-sibling::*[1])`)
+        contactInfo.companyWebsite = await (await companyWebsite?.getProperty('textContent'))?.jsonValue()
+
+        const businessName = await this.page.waitForSelector(`h1`)
+        contactInfo.businessName = await (await businessName?.getProperty('textContent'))?.jsonValue()
+
+        return contactInfo
     }
 
 }

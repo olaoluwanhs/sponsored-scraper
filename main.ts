@@ -2,6 +2,7 @@ import { Browser } from 'puppeteer';
 import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import Yelp from './websites/yelp';
+import { writeObject } from './json-db';
 
 puppeteer.use(StealthPlugin());
 
@@ -27,7 +28,7 @@ async function Main() {
 
         await targetSite.navigate()
 
-        await targetSite.search("royal")
+        await targetSite.search("Wears")
 
         const sponsored = await targetSite.fetchSponsored()
         console.log(sponsored)
@@ -35,15 +36,20 @@ async function Main() {
         for (let s of sponsored) {
             if (!s) continue
             await targetSite.navigate(s, true)
-            await new Promise(r => setTimeout(r, 5000))
+            const businessInfo = await targetSite.getBusinessInformation()
+
+            // console.log(businessInfo)
+            await writeObject(businessInfo)
+            await new Promise(r => setTimeout(r, 7000))
         }
     } catch (error: any) {
         console.log(error.message)
-        await page.close()
+        // console.log(error.stack)
+        // await page.close()
         await browser.close()
     }
 
-    await page.close()
+    // await page.close()
     await browser.close()
 }
 
