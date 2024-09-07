@@ -35,7 +35,7 @@ function Main() {
         // Process
         try {
             yield targetSite.navigate();
-            yield targetSite.search("Wears");
+            yield targetSite.search("Shoe");
             const sponsored = yield targetSite.fetchSponsored();
             console.log(sponsored);
             for (let s of sponsored) {
@@ -50,7 +50,7 @@ function Main() {
         }
         catch (error) {
             console.log(error.message);
-            console.log(error.stack);
+            // console.log(error.stack)
             // await page.close()
             yield browser.close();
         }

@@ -28,7 +28,7 @@ async function Main() {
 
         await targetSite.navigate()
 
-        await targetSite.search("Wears")
+        await targetSite.search("Shoe")
 
         const sponsored = await targetSite.fetchSponsored()
         console.log(sponsored)
