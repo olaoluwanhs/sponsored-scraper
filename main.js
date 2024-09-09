@@ -14,8 +14,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const puppeteer_extra_1 = __importDefault(require("puppeteer-extra"));
 const puppeteer_extra_plugin_stealth_1 = __importDefault(require("puppeteer-extra-plugin-stealth"));
-const yelp_1 = __importDefault(require("./websites/yelp"));
 const json_db_1 = require("./json-db");
+const groupon_1 = __importDefault(require("./websites/groupon"));
 puppeteer_extra_1.default.use((0, puppeteer_extra_plugin_stealth_1.default)());
 function Main() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -26,22 +26,29 @@ function Main() {
         });
         const page = (yield browser.pages())[0];
         // Conditional
+        const site = 'groupon';
         let targetSite;
-        switch (null) {
+        switch (site) {
+            // case 'yelp':
+            //     targetSite = new Yelp(page, browser)
+            //     break;
+            // case 'groupon':
+            //     targetSite = new Groupon(page, browser)
+            //     break;
             default:
-                targetSite = new yelp_1.default(page, browser);
+                targetSite = new groupon_1.default(page, browser);
                 break;
         }
         // Process
         try {
             yield targetSite.navigate();
-            yield targetSite.search("Shoe");
+            yield targetSite.search("Spa");
             const sponsored = yield targetSite.fetchSponsored();
             console.log(sponsored);
             for (let s of sponsored) {
                 if (!s)
                     continue;
-                yield targetSite.navigate(s, true);
+                yield targetSite.navigate(s, false);
                 const businessInfo = yield targetSite.getBusinessInformation();
                 // console.log(businessInfo)
                 yield (0, json_db_1.writeObject)(businessInfo);

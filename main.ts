@@ -3,6 +3,7 @@ import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import Yelp from './websites/yelp';
 import { writeObject } from './json-db';
+import Groupon from './websites/groupon';
 
 puppeteer.use(StealthPlugin());
 
@@ -16,10 +17,17 @@ async function Main() {
     const page = (await browser.pages())[0]
 
     // Conditional
+    const site = 'groupon'
     let targetSite;
-    switch (null) {
+    switch (site) {
+        // case 'yelp':
+        //     targetSite = new Yelp(page, browser)
+        //     break;
+        // case 'groupon':
+        //     targetSite = new Groupon(page, browser)
+        //     break;
         default:
-            targetSite = new Yelp(page, browser)
+            targetSite = new Groupon(page, browser)
             break;
     }
 
@@ -28,14 +36,14 @@ async function Main() {
 
         await targetSite.navigate()
 
-        await targetSite.search("Shoe")
+        await targetSite.search("Spa")
 
         const sponsored = await targetSite.fetchSponsored()
         console.log(sponsored)
 
         for (let s of sponsored) {
             if (!s) continue
-            await targetSite.navigate(s, true)
+            await targetSite.navigate(s, false)
             const businessInfo = await targetSite.getBusinessInformation()
 
             // console.log(businessInfo)
