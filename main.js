@@ -14,10 +14,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const puppeteer_extra_1 = __importDefault(require("puppeteer-extra"));
 const puppeteer_extra_plugin_stealth_1 = __importDefault(require("puppeteer-extra-plugin-stealth"));
+const yelp_1 = __importDefault(require("./websites/yelp"));
 const json_db_1 = require("./json-db");
 const groupon_1 = __importDefault(require("./websites/groupon"));
+const prompt = require('multiselect-prompt');
 puppeteer_extra_1.default.use((0, puppeteer_extra_plugin_stealth_1.default)());
-function Main() {
+const term = process.argv[2];
+function Main(sites) {
     return __awaiter(this, void 0, void 0, function* () {
         const browser = yield puppeteer_extra_1.default.launch({
             headless: false,
@@ -25,32 +28,41 @@ function Main() {
             args: ['--no-sandbox', '--disable-setuid-sandbox']
         });
         const page = (yield browser.pages())[0];
+        yield page.setRequestInterception(true);
+        page.on('request', (req) => {
+            if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+                req.abort();
+            }
+            else {
+                req.continue();
+            }
+        });
         // Conditional
-        const site = 'groupon';
         let targetSite;
-        switch (site) {
-            // case 'yelp':
-            //     targetSite = new Yelp(page, browser)
-            //     break;
-            // case 'groupon':
-            //     targetSite = new Groupon(page, browser)
-            //     break;
-            default:
+        switch (sites) {
+            case 'yelp':
+                targetSite = new yelp_1.default(page, browser);
+                break;
+            case 'groupon':
                 targetSite = new groupon_1.default(page, browser);
                 break;
+            default:
+                console.log(`Unknown site`);
+                // targetSite = new Groupon(page, browser)
+                break;
         }
+        if (!targetSite)
+            return;
         // Process
         try {
             yield targetSite.navigate();
-            yield targetSite.search("Spa");
+            yield targetSite.search(term);
             const sponsored = yield targetSite.fetchSponsored();
-            console.log(sponsored);
             for (let s of sponsored) {
                 if (!s)
                     continue;
-                yield targetSite.navigate(s, false);
+                yield targetSite.navigate(s, !s.startsWith('https'));
                 const businessInfo = yield targetSite.getBusinessInformation();
-                // console.log(businessInfo)
                 yield (0, json_db_1.writeObject)(businessInfo);
                 yield new Promise(r => setTimeout(r, 7000));
             }
@@ -61,8 +73,40 @@ function Main() {
             // await page.close()
             yield browser.close();
         }
-        // await page.close()
         yield browser.close();
     });
 }
-Main().catch(e => console.log(e.message));
+function start() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const colors = [
+            { title: 'Groupon', value: 'groupon' },
+            { title: 'Yelp', value: 'yelp' }
+        ];
+        const selected = (items) => items
+            .filter((item) => item.selected)
+            .map((item) => item.value);
+        // All these options are optional
+        const opts = {
+            cursor: 1, // Initial position of the cursor, defaults to 0 (first entry)
+            maxChoices: 3, // Maximum number of selectable options (defaults to Infinity)
+            // The message to display as hint if enabled, below is the default value
+            hint: '– Space to select. Return to submit.'
+        };
+        let sites;
+        prompt('What websites are you running on?', colors, opts)
+            .on('data', (data) => console.log('Changed to', selected(data.value)))
+            .on('abort', (items) => console.log('Aborted with', selected(items)))
+            .on('submit', (items) => __awaiter(this, void 0, void 0, function* () {
+            for (const site of selected(items)) {
+                try {
+                    yield Main(site).catch(e => console.log(e.message));
+                }
+                catch (error) {
+                    console.log(error.message);
+                    continue;
+                }
+            }
+        }));
+    });
+}
+start();

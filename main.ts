@@ -4,10 +4,13 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import Yelp from './websites/yelp';
 import { writeObject } from './json-db';
 import Groupon from './websites/groupon';
+const prompt = require('multiselect-prompt')
 
 puppeteer.use(StealthPlugin());
 
-async function Main() {
+const term = process.argv[2]
+
+async function Main(sites: string) {
     const browser: Browser = await puppeteer.launch({
         headless: false,
         executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -15,38 +18,49 @@ async function Main() {
     });
 
     const page = (await browser.pages())[0]
+    await page.setRequestInterception(true);
+
+    page.on('request', (req) => {
+        if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+            req.abort();
+        }
+        else {
+            req.continue();
+        }
+    })
+
 
     // Conditional
-    const site = 'groupon'
     let targetSite;
-    switch (site) {
-        // case 'yelp':
-        //     targetSite = new Yelp(page, browser)
-        //     break;
-        // case 'groupon':
-        //     targetSite = new Groupon(page, browser)
-        //     break;
-        default:
+    switch (sites) {
+        case 'yelp':
+            targetSite = new Yelp(page, browser)
+            break;
+        case 'groupon':
             targetSite = new Groupon(page, browser)
             break;
+        default:
+            console.log(`Unknown site`)
+            // targetSite = new Groupon(page, browser)
+            break;
     }
+
+    if (!targetSite) return;
 
     // Process
     try {
 
         await targetSite.navigate()
 
-        await targetSite.search("Spa")
+        await targetSite.search(term)
 
         const sponsored = await targetSite.fetchSponsored()
-        console.log(sponsored)
 
         for (let s of sponsored) {
             if (!s) continue
-            await targetSite.navigate(s, false)
+            await targetSite.navigate(s, !s.startsWith('https'))
             const businessInfo = await targetSite.getBusinessInformation()
 
-            // console.log(businessInfo)
             await writeObject(businessInfo)
             await new Promise(r => setTimeout(r, 7000))
         }
@@ -57,8 +71,42 @@ async function Main() {
         await browser.close()
     }
 
-    // await page.close()
     await browser.close()
 }
 
-Main().catch(e => console.log(e.message))
+async function start() {
+
+    const colors = [
+        { title: 'Groupon', value: 'groupon' },
+        { title: 'Yelp', value: 'yelp' }
+    ]
+
+    const selected = (items: any) => items
+        .filter((item: any) => item.selected)
+        .map((item: any) => item.value)
+
+    // All these options are optional
+    const opts = {
+        cursor: 1,     // Initial position of the cursor, defaults to 0 (first entry)
+        maxChoices: 3, // Maximum number of selectable options (defaults to Infinity)
+        // The message to display as hint if enabled, below is the default value
+        hint: '– Space to select. Return to submit.'
+    }
+
+    let sites;
+    prompt('What websites are you running on?', colors, opts)
+        .on('data', (data: any) => console.log('Changed to', selected(data.value)))
+        .on('abort', (items: any) => console.log('Aborted with', selected(items)))
+        .on('submit', async (items: any) => {
+            for (const site of selected(items)) {
+                try {
+                    await Main(site).catch(e => console.log(e.message))
+                } catch (error: any) {
+                    console.log(error.message)
+                    continue
+                }
+            }
+        })
+}
+
+start()
